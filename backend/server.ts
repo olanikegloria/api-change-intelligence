@@ -5,7 +5,7 @@ import * as path from "path";
 import { loadOpenApi } from "../parser";
 import { diffOpenApi, overallRisk, scanConsumers } from "../dependency-engine";
 import type { BreakingChange, ConsumerHit } from "../dependency-engine";
-import { accounts, PLAN_PRICES, type AuthContext } from "./accounts";
+import { accounts, type AuthContext } from "./accounts";
 
 const ROOT = process.env.PROJECT_ROOT
   ? path.resolve(process.env.PROJECT_ROOT)
@@ -109,57 +109,11 @@ export function createApp() {
     }
   });
 
-  app.get("/billing/usage", requireAuth, (req: AuthedRequest, res) => {
+  app.get("/usage", requireAuth, (req: AuthedRequest, res) => {
     res.json(accounts.usageSnapshot(req.auth!.org_id));
   });
 
-  app.post("/billing/checkout-session", requireAuth, (req: AuthedRequest, res) => {
-    const plan = String(req.body?.plan || "team");
-    if (plan !== "team" && plan !== "business") {
-      res.status(400).json({ error: "plan must be team or business" });
-      return;
-    }
-    const stripeKey = (process.env.STRIPE_SECRET_KEY || "").trim();
-    // Free-stack stub: upgrade plan in local DB so demos work without Stripe.
-    const usage = accounts.setPlan(req.auth!.org_id, plan);
-    const fakeSession = `cs_test_fake_${plan}_${req.auth!.org_id.slice(0, 8)}`;
-    res.json({
-      id: fakeSession,
-      url: `https://checkout.stripe.com/c/pay/${fakeSession}`,
-      mode: stripeKey ? "stripe_ready_stub" : "stub",
-      plan,
-      price_usd: PLAN_PRICES[plan],
-      org_id: req.auth!.org_id,
-      usage,
-      stripe_configured: Boolean(stripeKey),
-      message: stripeKey
-        ? "STRIPE_SECRET_KEY detected — replace this handler with stripe.checkout.Session.create before live charges. Plan upgraded locally for demo continuity."
-        : "Stub checkout: plan upgraded locally. Set STRIPE_SECRET_KEY when ready for real Stripe Checkout.",
-      success_url: req.body?.success_url || "/app?checkout=success",
-      cancel_url: req.body?.cancel_url || "/?checkout=cancel",
-      env: {
-        STRIPE_SECRET_KEY: "optional; required later for live Checkout",
-        STRIPE_WEBHOOK_SECRET: "optional; invoice.paid → plan upgrade",
-        STRIPE_PRICE_TEAM: "optional Price ID for Team ($59/mo)",
-        STRIPE_PRICE_BUSINESS: "optional Price ID for Business ($179/mo)",
-      },
-    });
-  });
-
   app.post("/diff", requireAuth, (req: AuthedRequest, res: Response) => {
-    const quota = accounts.checkDiffQuota(req.auth!.org_id);
-    if (!quota.allowed) {
-      res.status(402).json({
-        error: "quota_exceeded",
-        message: `Free tier limit of ${quota.diffs_limit} diffs/${quota.month} reached. Upgrade via POST /billing/checkout-session.`,
-        plan: quota.plan,
-        diffs_used: quota.diffs_used,
-        diffs_limit: quota.diffs_limit,
-        month: quota.month,
-        upgrade: { team: "$59/mo", business: "$179/mo" },
-      });
-      return;
-    }
     try {
       const report = buildReport(req.body?.v1Path, req.body?.v2Path, req.body?.consumersDir);
       lastReport = report;
@@ -207,22 +161,22 @@ function renderLanding(): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>API Change Intelligence — catch breakages before merge</title>
+  <title>API Change Intelligence — catch breaking changes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --ink: #10150f; --paper: #eef3ea; --mist: #d4e0ce; --leaf: #2f6b3a;
-      --leaf-deep: #1a3d22; --signal: #c45c26; --line: rgba(16,21,15,.12); --muted: #5c6b58;
+      --ink: #10150f; --paper: #eef3ea; --leaf: #2f6b3a; --leaf-deep: #1a3d22;
+      --line: rgba(16,21,15,.12); --muted: #5c6b58;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0; font-family: "Source Sans 3", system-ui, sans-serif; color: var(--ink);
       background:
-        radial-gradient(1100px 560px at 85% -15%, rgba(47,107,58,.2), transparent 55%),
-        radial-gradient(800px 420px at -5% 35%, rgba(196,92,38,.08), transparent 50%),
-        linear-gradient(180deg, #f4f8f1 0%, var(--paper) 45%, #e6eee2 100%);
+        radial-gradient(1100px 560px at 80% -10%, rgba(47,107,58,.18), transparent 55%),
+        radial-gradient(800px 420px at -8% 40%, rgba(196,122,44,.08), transparent 50%),
+        linear-gradient(180deg, #f2f7ef 0%, var(--paper) 45%, #e4ebe0 100%);
       min-height: 100vh;
     }
     .wrap { width: min(1100px, calc(100% - 2.5rem)); margin: 0 auto; }
@@ -243,9 +197,9 @@ function renderLanding(): string {
     @media (min-width: 900px) {
       .hero { grid-template-columns: 1.05fr .95fr; min-height: calc(100vh - 5.5rem); padding-top: 2rem; }
     }
-    .hero-copy .product { font-size: .8rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--leaf); }
-    .hero-copy h1 {
-      margin: .35rem 0 .85rem; font-size: clamp(2.3rem, 5vw, 3.5rem); line-height: 1.05;
+    .product { font-size: .8rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--leaf); }
+    h1 {
+      margin: .35rem 0 .85rem; font-size: clamp(2.3rem, 5vw, 3.4rem); line-height: 1.05;
       letter-spacing: -.045em; max-width: 14ch;
     }
     .hero-copy p { margin: 0 0 1.5rem; color: var(--muted); font-size: 1.08rem; line-height: 1.55; max-width: 38ch; }
@@ -263,19 +217,10 @@ function renderLanding(): string {
     section.block { padding: 3.5rem 0; border-top: 1px solid var(--line); }
     section.block h2 { margin: 0 0 .6rem; font-size: clamp(1.55rem, 3vw, 2rem); letter-spacing: -.03em; }
     .lede { margin: 0 0 1.75rem; color: var(--muted); max-width: 48ch; line-height: 1.5; }
-    .pricing { display: grid; gap: 1rem; }
-    @media (min-width: 860px) { .pricing { grid-template-columns: repeat(3, 1fr); } }
-    .plan {
-      padding: 1.35rem 1.25rem; border: 1px solid var(--line); border-radius: 14px;
-      background: rgba(255,255,255,.55); transition: transform .25s ease, border-color .25s;
-    }
-    .plan:hover { transform: translateY(-3px); border-color: rgba(47,107,58,.35); }
-    .plan.featured { background: var(--leaf); color: #f4faf5; border-color: transparent; }
-    .plan.featured p, .plan.featured li { color: rgba(244,250,245,.82); }
-    .price { margin: .7rem 0 .85rem; font-size: 2rem; font-weight: 700; letter-spacing: -.04em; }
-    .price small { font-size: .95rem; font-weight: 500; opacity: .75; }
-    .plan ul { margin: 0 0 1.2rem; padding-left: 1.1rem; color: var(--muted); line-height: 1.55; font-size: .92rem; }
-    .plan.featured .btn-primary { background: #f4faf5; color: var(--leaf-deep); }
+    .split { display: grid; gap: 1.25rem; }
+    @media (min-width: 800px) { .split { grid-template-columns: 1fr 1fr; } }
+    .point h3 { margin: 0 0 .4rem; font-size: 1.05rem; }
+    .point p { margin: 0; color: var(--muted); line-height: 1.5; }
     footer {
       border-top: 1px solid var(--line); padding: 1.5rem 0 2.5rem; display: flex; flex-wrap: wrap;
       gap: 1rem; justify-content: space-between; color: var(--muted); font-size: .88rem;
@@ -288,7 +233,7 @@ function renderLanding(): string {
     <nav>
       <div class="brand">API <span>Change Intelligence</span></div>
       <div class="nav-links">
-        <a href="#pricing">Pricing</a>
+        <a href="#product">Product</a>
         <a href="/legal/terms">Terms</a>
         <a class="btn btn-primary" href="/app">Open app</a>
       </div>
@@ -297,10 +242,10 @@ function renderLanding(): string {
       <div class="hero-copy">
         <div class="product">API Change Intelligence</div>
         <h1>Catch breaking API changes before they ship.</h1>
-        <p>Diff OpenAPI specs, score risk, and map blast radius across consumers — with orgs, API tokens, and a clear upgrade path.</p>
+        <p>Diff OpenAPI specs, score risk, and map blast radius across consumers — with orgs and API tokens on a free local stack.</p>
         <div class="cta-row">
           <a class="btn btn-primary" href="/app">Try the product</a>
-          <a class="btn btn-ghost" href="#pricing">See pricing</a>
+          <a class="btn btn-ghost" href="#product">How it works</a>
         </div>
       </div>
       <div class="hero-visual" aria-hidden="true">
@@ -314,44 +259,22 @@ function renderLanding(): string {
         </div>
       </div>
     </header>
-    <section class="block" id="pricing">
-      <h2>Plans for API platform teams</h2>
-      <p class="lede">Free proves the loop. Team covers a squad owning shared contracts. See docs/PRICING.md for the full narrative.</p>
-      <div class="pricing">
-        <article class="plan">
-          <h3>Free</h3>
-          <div class="price">$0</div>
-          <ul>
-            <li>1 seat · 1 API surface</li>
-            <li>30 diffs / month</li>
-            <li>Consumer blast-radius scan</li>
-          </ul>
-          <a class="btn btn-ghost" href="/app">Start free</a>
-        </article>
-        <article class="plan featured">
-          <h3>Team</h3>
-          <div class="price">$59 <small>/ mo</small></div>
-          <ul>
-            <li>Up to 10 seats · 10 APIs</li>
-            <li>1,500 diffs / month</li>
-            <li>Email support</li>
-          </ul>
-          <a class="btn btn-primary" href="/app">Choose Team</a>
-        </article>
-        <article class="plan">
-          <h3>Business</h3>
-          <div class="price">$179 <small>/ mo</small></div>
-          <ul>
-            <li>Up to 50 seats · 50 APIs</li>
-            <li>Unlimited diffs (fair use)</li>
-            <li>Priority support</li>
-          </ul>
-          <a class="btn btn-ghost" href="/app">Talk Business</a>
-        </article>
+    <section class="block" id="product">
+      <h2>Diff → risk → consumer blast radius</h2>
+      <p class="lede">Compare OpenAPI fixtures, score HIGH/MED/LOW risk, and scan sample consumers for references. No paid APIs required.</p>
+      <div class="split">
+        <div class="point">
+          <h3>Contract-aware review</h3>
+          <p>Surface removals, type changes, and required fields before merge — with consumer hits from static scan.</p>
+        </div>
+        <div class="point">
+          <h3>Local eval in minutes</h3>
+          <p>Use Bearer token <code>demo</code>, or sign up for an org token.</p>
+        </div>
       </div>
     </section>
     <footer>
-      <div>© 2026 API Change Intelligence — free-stack SaaS foundation</div>
+      <div>© 2026 API Change Intelligence — local production-ready product</div>
       <div><a href="/legal/terms">Terms</a> · <a href="/legal/privacy">Privacy</a> · <a href="/app">App</a></div>
     </footer>
   </div>
@@ -461,12 +384,11 @@ function renderDashboard(report: Report): string {
     const TOKEN = localStorage.getItem('aci_token') || 'demo';
     async function refreshUsage() {
       try {
-        const res = await fetch('/billing/usage', { headers: { Authorization: 'Bearer ' + TOKEN } });
+        const res = await fetch('/usage', { headers: { Authorization: 'Bearer ' + TOKEN } });
         if (!res.ok) return;
         const u = await res.json();
-        const lim = u.diffs_limit == null ? '∞' : u.diffs_limit;
         document.getElementById('usage').textContent =
-          'Plan ' + u.plan + ' · diffs ' + u.diffs_used + '/' + lim + ' · token ' + TOKEN.slice(0, 8);
+          'Diffs this month: ' + u.diffs_used + ' · token ' + TOKEN.slice(0, 8);
       } catch (_) {}
     }
     async function runDiff() {
@@ -475,11 +397,6 @@ function renderDashboard(report: Report): string {
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
         body: '{}'
       });
-      if (res.status === 402) {
-        const body = await res.json();
-        alert(body.message || 'Quota exceeded — upgrade via /billing/checkout-session');
-        return;
-      }
       if (!res.ok) { alert('Diff failed'); return; }
       location.reload();
     }
@@ -499,15 +416,12 @@ main{width:min(720px,calc(100% - 2rem));margin:2rem auto 3rem}a{color:#2f6b3a}.m
 <p><a href="/">← API Change Intelligence</a></p>
 <h1>Terms of Service</h1>
 <p class="muted">Stub — last updated September 5, 2026. Not legal advice.</p>
-<p>API Change Intelligence (“Service”) analyzes OpenAPI diffs and estimates consumer blast radius for evaluation and commercial use.</p>
+<p>API Change Intelligence (“Service”) analyzes OpenAPI diffs and estimates consumer blast radius for evaluation and local use.</p>
 <h2>Accounts</h2>
 <ul>
 <li>You are responsible for credentials and API tokens issued to your organization.</li>
-<li>Free, Team, and Business plans are subject to documented limits.</li>
 <li>Abuse or unlawful use is prohibited.</li>
 </ul>
-<h2>Billing</h2>
-<p>Paid plans bill via Stripe when configured. Development builds may use stub checkout that upgrades the plan in the local store.</p>
 <h2>Disclaimer</h2>
 <p>The Service is provided “as is.” Diff and consumer scans assist review; you remain responsible for production API decisions.</p>
 </main></body></html>`;
@@ -525,14 +439,15 @@ main{width:min(720px,calc(100% - 2rem));margin:2rem auto 3rem}a{color:#2f6b3a}.m
 <p class="muted">Stub — last updated September 5, 2026. Not legal advice.</p>
 <h2>Data we store</h2>
 <ul>
-<li><strong>Account data:</strong> email, password hash, organization name, plan, API tokens.</li>
-<li><strong>Usage metering:</strong> diff counts per organization per calendar month.</li>
-<li><strong>Analysis data:</strong> OpenAPI payloads and consumer paths you submit for scanning.</li>
+<li><strong>Account data:</strong> email, password hash, organization name, API tokens.</li>
+<li><strong>Usage:</strong> diff counts per organization per calendar month.</li>
+<li><strong>Specs:</strong> OpenAPI paths you submit for comparison and consumer scan roots.</li>
 </ul>
 <h2>Storage</h2>
-<p>Local deployments persist JSON under <code>DATA_DIR</code> (for example <code>data/accounts.json</code>). The demo Bearer token <code>demo</code> is for local evaluation only.</p>
+<p>Local deployments persist JSON under <code>DATA_DIR</code>. The demo Bearer token <code>demo</code> is for local evaluation only.</p>
 </main></body></html>`;
 }
+
 
 function escapeHtml(s: string): string {
   return s

@@ -1,6 +1,6 @@
 /**
  * Org / user / token / usage store (JSON under data/).
- * Free-stack: no paid auth or billing providers required.
+ * Free-stack: no paid auth providers required.
  */
 import * as crypto from "crypto";
 import * as fs from "fs";
@@ -22,21 +22,9 @@ export const DEMO_TOKEN = "demo";
 export const DEMO_ORG_ID = "org_demo";
 export const DEMO_EMAIL = "demo@localhost";
 
-/** Diffs per calendar month (null = unlimited). */
-export const PLAN_DIFF_LIMITS: Record<string, number | null> = {
-  free: 30,
-  team: 1500,
-  business: null,
-};
-
-export const PLAN_SEATS: Record<string, number> = { free: 1, team: 10, business: 50 };
-export const PLAN_APIS: Record<string, number> = { free: 1, team: 10, business: 50 };
-export const PLAN_PRICES: Record<string, number> = { free: 0, team: 59, business: 179 };
-
 type Org = {
   id: string;
   name: string;
-  plan: string;
   created_at: string;
   usage: Record<string, { diffs?: number }>;
 };
@@ -60,18 +48,12 @@ export type AuthContext = {
   user_email: string;
   org_id: string;
   org: Org;
-  plan: string;
 };
 
 export type UsageSnapshot = {
   org_id: string;
-  plan: string;
   month: string;
   diffs_used: number;
-  diffs_limit: number | null;
-  seats_limit: number;
-  apis_limit: number;
-  allowed?: boolean;
 };
 
 function utcnow(): string {
@@ -121,6 +103,9 @@ export class AccountsStore {
     this.orgs = raw.orgs || {};
     this.users = raw.users || {};
     this.tokens = raw.tokens || {};
+    for (const org of Object.values(this.orgs)) {
+      delete (org as { plan?: string }).plan;
+    }
     this._ensureDemo();
     this._persist();
   }
@@ -130,7 +115,6 @@ export class AccountsStore {
       this.orgs[DEMO_ORG_ID] = {
         id: DEMO_ORG_ID,
         name: "Demo Org",
-        plan: "business",
         created_at: utcnow(),
         usage: {},
       };
@@ -174,7 +158,6 @@ export class AccountsStore {
     this.orgs[orgId] = {
       id: orgId,
       name: orgName.trim(),
-      plan: "free",
       created_at: now,
       usage: {},
     };
@@ -195,7 +178,6 @@ export class AccountsStore {
       email: key,
       org_id: orgId,
       org_name: orgName.trim(),
-      plan: "free",
       token,
     };
   }
@@ -219,7 +201,6 @@ export class AccountsStore {
       email: key,
       org_id: user.org_id,
       org_name: org.name,
-      plan: org.plan || "free",
       token,
     };
   }
@@ -235,31 +216,18 @@ export class AccountsStore {
       user_email: entry.user_email,
       org_id: entry.org_id,
       org,
-      plan: org.plan || "free",
     };
   }
 
   usageSnapshot(orgId: string): UsageSnapshot {
     const org = this.orgs[orgId];
-    const plan = org.plan || "free";
     const month = monthKey();
     const used = Number(org.usage?.[month]?.diffs || 0);
-    const limit = PLAN_DIFF_LIMITS[plan] ?? PLAN_DIFF_LIMITS.free;
     return {
       org_id: orgId,
-      plan,
       month,
       diffs_used: used,
-      diffs_limit: limit,
-      seats_limit: PLAN_SEATS[plan] ?? 1,
-      apis_limit: PLAN_APIS[plan] ?? 1,
     };
-  }
-
-  checkDiffQuota(orgId: string): UsageSnapshot & { allowed: boolean } {
-    const snap = this.usageSnapshot(orgId);
-    const allowed = snap.diffs_limit === null || snap.diffs_used < snap.diffs_limit;
-    return { ...snap, allowed };
   }
 
   recordDiff(orgId: string): UsageSnapshot {
@@ -268,13 +236,6 @@ export class AccountsStore {
     if (!org.usage) org.usage = {};
     if (!org.usage[month]) org.usage[month] = { diffs: 0 };
     org.usage[month].diffs = Number(org.usage[month].diffs || 0) + 1;
-    this._persist();
-    return this.usageSnapshot(orgId);
-  }
-
-  setPlan(orgId: string, plan: string): UsageSnapshot {
-    if (!(plan in PLAN_DIFF_LIMITS)) throw new Error(`Unknown plan: ${plan}`);
-    this.orgs[orgId].plan = plan;
     this._persist();
     return this.usageSnapshot(orgId);
   }
