@@ -2,7 +2,7 @@
 
 **Status:** Production-ready local product (auth + OpenAPI diff + consumer scan)  
 **Folder:** `06-api-change-intelligence`  
-**Free-stack:** No paid APIs. Local auth + JSON store.
+**Free-stack:** No paid APIs. Local auth + JSON store + optional free Ollama for grounded merge narratives.
 
 Detect breaking OpenAPI changes and estimate downstream blast radius via static consumer scanning.
 
@@ -12,9 +12,9 @@ Detect breaking OpenAPI changes and estimate downstream blast radius via static 
 
 - Marketing landing at `/`; product dashboard at `/app`
 - OpenAPI fixture diff + consumer blast-radius scan
-- Bearer-protected `/diff` and `/report` (`demo` token for local eval)
+- Bearer-protected `/diff`, `/report`, `/merge-risk` (`demo` token for local eval)
 - Org signup/login with API tokens
-- Risk badges HIGH/MED/LOW + AI explanation stub that cites engine output
+- Risk badges HIGH/MED/LOW + deterministic merge recommendation + optional Ollama narrative
 
 Legal stubs: `/legal/terms`, `/legal/privacy`
 
@@ -47,6 +47,8 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8006/report | head
 
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8006/merge-risk
+
 curl -X POST http://localhost:8006/auth/signup \
   -H "Content-Type: application/json" \
   -d '{"email":"buyer@acme.dev","password":"demo-pass","org_name":"Acme Platform"}'
@@ -78,8 +80,9 @@ UI/API: http://localhost:8006/
 | POST | `/auth/signup` | — | Create org + user + API token |
 | POST | `/auth/login` | — | Return API token |
 | GET | `/usage` | Bearer | Diffs used this month |
-| POST | `/diff` | Bearer | Diff fixtures |
+| POST | `/diff` | Bearer | Diff fixtures (+ optional Ollama narrative) |
 | GET | `/report` | Bearer | Last (or freshly built) report JSON |
+| GET | `/merge-risk` | Bearer | `{ can_merge_recommendation, reasons }` (+ AI narrative) |
 
 Local eval: `Authorization: Bearer demo`
 
@@ -89,6 +92,11 @@ Local eval: `Authorization: Bearer demo`
 |----------|---------|
 | `DATA_DIR` | JSON persistence (default `./data`) |
 | `PORT` | Default `8006` |
+| `OLLAMA_HOST` | Ollama base URL (default `http://127.0.0.1:11434`) |
+| `OLLAMA_MODEL` | Model name (default `qwen2.5-coder:3b`) |
+| `OLLAMA_TIMEOUT_MS` | Chat timeout (default `90000`) |
+
+Optional free local AI via Ollama. If unavailable, `aiExplanation` falls back to a deterministic diff summary (`ai_provider: "fallback"`). Merge recommendation stays rule-based either way.
 
 ## Layout
 

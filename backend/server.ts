@@ -6,12 +6,18 @@ import { loadOpenApi } from "../parser";
 import { diffOpenApi, overallRisk, scanConsumers } from "../dependency-engine";
 import type { BreakingChange, ConsumerHit } from "../dependency-engine";
 import { accounts, type AuthContext } from "./accounts";
+import { groundedComplete } from "../ai/ollamaClient";
 
 const ROOT = process.env.PROJECT_ROOT
   ? path.resolve(process.env.PROJECT_ROOT)
   : path.resolve(__dirname, "..");
 const FIXTURES = path.join(ROOT, "fixtures");
 const CONSUMERS = path.join(ROOT, "sample-consumers");
+
+export type MergeRisk = {
+  can_merge_recommendation: "block" | "review" | "allow";
+  reasons: string[];
+};
 
 export type Report = {
   generatedAt: string;
@@ -20,11 +26,73 @@ export type Report = {
   breakingChanges: BreakingChange[];
   consumers: ConsumerHit[];
   aiExplanation: string;
+  ai_provider: "ollama" | "fallback";
+  can_merge_recommendation: MergeRisk["can_merge_recommendation"];
+  reasons: string[];
 };
 
 let lastReport: Report | null = null;
 
-export function buildReport(v1Path?: string, v2Path?: string, consumersDir?: string): Report {
+/** Deterministic merge gate from breaking-change count + consumer hits. */
+export function computeMergeRisk(
+  breakingChanges: BreakingChange[],
+  consumers: ConsumerHit[]
+): MergeRisk {
+  const high = breakingChanges.filter((c) => c.severity === "HIGH").length;
+  const med = breakingChanges.filter((c) => c.severity === "MED").length;
+  const consumerOrgs = [...new Set(consumers.map((c) => c.consumer))];
+  const reasons: string[] = [];
+
+  if (breakingChanges.length === 0) {
+    reasons.push("No breaking/notable OpenAPI changes detected.");
+    return { can_merge_recommendation: "allow", reasons };
+  }
+
+  reasons.push(
+    `${breakingChanges.length} breaking/notable change(s) (${high} HIGH, ${med} MED).`
+  );
+  if (consumers.length > 0) {
+    reasons.push(
+      `${consumers.length} consumer hit(s) across: ${consumerOrgs.join(", ")}.`
+    );
+  } else {
+    reasons.push("No static consumer references matched (false negatives possible).");
+  }
+
+  if (high >= 1 && consumers.length > 0) {
+    reasons.push("HIGH-severity change(s) with known consumer blast radius → block.");
+    return { can_merge_recommendation: "block", reasons };
+  }
+  if (high >= 2) {
+    reasons.push("Multiple HIGH-severity changes without confirmed consumers → review.");
+    return { can_merge_recommendation: "review", reasons };
+  }
+  if (breakingChanges.length > 0) {
+    reasons.push("Breaking or notable changes present → human review before merge.");
+    return { can_merge_recommendation: "review", reasons };
+  }
+  return { can_merge_recommendation: "allow", reasons };
+}
+
+function fallbackAiExplanation(
+  breakingChanges: BreakingChange[],
+  consumers: ConsumerHit[]
+): string {
+  return [
+    "Breaking-change narrative based only on the diff engine output:",
+    ...breakingChanges.slice(0, 8).map((c) => `- (${c.severity}) ${c.summary}`),
+    consumers.length
+      ? `Potential blast radius includes: ${[...new Set(consumers.map((c) => c.consumer))].join(", ")}.`
+      : "No static consumer references matched (false negatives possible).",
+    "Citations: change kinds from diffOpenApi; consumer hits from scanConsumers.",
+  ].join("\n");
+}
+
+export async function buildReport(
+  v1Path?: string,
+  v2Path?: string,
+  consumersDir?: string
+): Promise<Report> {
   const left = v1Path || path.join(FIXTURES, "openapi-v1.json");
   const right = v2Path || path.join(FIXTURES, "openapi-v2.json");
   const scanRoot = consumersDir || CONSUMERS;
@@ -34,22 +102,36 @@ export function buildReport(v1Path?: string, v2Path?: string, consumersDir?: str
   const breakingChanges = diffOpenApi(v1, v2);
   const consumers = scanConsumers(scanRoot, breakingChanges);
   const risk = overallRisk(breakingChanges);
+  const merge = computeMergeRisk(breakingChanges, consumers);
 
   const summary = [
     `Compared ${path.basename(left)} → ${path.basename(right)}.`,
     `Found ${breakingChanges.length} breaking/notable change(s).`,
     `Overall risk: ${risk}.`,
     `Matched ${consumers.length} consumer reference(s) under ${path.basename(scanRoot)}.`,
+    `Merge recommendation: ${merge.can_merge_recommendation}.`,
   ].join(" ");
 
-  const aiExplanation = [
-    "[AI stub] Breaking-change narrative based only on the diff engine output:",
-    ...breakingChanges.slice(0, 8).map((c) => `- (${c.severity}) ${c.summary}`),
-    consumers.length
-      ? `Potential blast radius includes: ${[...new Set(consumers.map((c) => c.consumer))].join(", ")}.`
-      : "No static consumer references matched (false negatives possible).",
-    "Citations: change kinds from diffOpenApi; consumer hits from scanConsumers.",
-  ].join("\n");
+  const deterministic = fallbackAiExplanation(breakingChanges, consumers);
+  const evidence = JSON.stringify(
+    {
+      summary,
+      risk,
+      merge,
+      breakingChanges,
+      consumers,
+    },
+    null,
+    2
+  );
+
+  const ai = await groundedComplete({
+    task:
+      "Write a concise merge-review narrative for this OpenAPI diff. " +
+      "Use ONLY the JSON evidence (diff + consumers). Do not invent endpoints or services.",
+    evidence,
+    question: "What should reviewers know before merging this API change?",
+  });
 
   return {
     generatedAt: new Date().toISOString(),
@@ -57,7 +139,10 @@ export function buildReport(v1Path?: string, v2Path?: string, consumersDir?: str
     summary,
     breakingChanges,
     consumers,
-    aiExplanation,
+    aiExplanation: ai.ok && ai.text ? ai.text : deterministic,
+    ai_provider: ai.provider,
+    can_merge_recommendation: merge.can_merge_recommendation,
+    reasons: merge.reasons,
   };
 }
 
@@ -113,9 +198,9 @@ export function createApp() {
     res.json(accounts.usageSnapshot(req.auth!.org_id));
   });
 
-  app.post("/diff", requireAuth, (req: AuthedRequest, res: Response) => {
+  app.post("/diff", requireAuth, async (req: AuthedRequest, res: Response) => {
     try {
-      const report = buildReport(req.body?.v1Path, req.body?.v2Path, req.body?.consumersDir);
+      const report = await buildReport(req.body?.v1Path, req.body?.v2Path, req.body?.consumersDir);
       lastReport = report;
       accounts.recordDiff(req.auth!.org_id);
       res.json(report);
@@ -124,19 +209,36 @@ export function createApp() {
     }
   });
 
-  app.get("/report", requireAuth, (_req, res) => {
+  app.get("/report", requireAuth, async (_req, res) => {
     if (!lastReport) {
-      lastReport = buildReport();
+      lastReport = await buildReport();
     }
     res.json(lastReport);
+  });
+
+  app.get("/merge-risk", requireAuth, async (_req, res) => {
+    if (!lastReport) {
+      lastReport = await buildReport();
+    }
+    res.json({
+      can_merge_recommendation: lastReport.can_merge_recommendation,
+      reasons: lastReport.reasons,
+      risk: lastReport.risk,
+      aiExplanation: lastReport.aiExplanation,
+      ai_provider: lastReport.ai_provider,
+      generatedAt: lastReport.generatedAt,
+    });
   });
 
   app.get("/", (_req, res) => {
     res.type("html").send(renderLanding());
   });
 
-  app.get("/app", (_req, res) => {
-    res.type("html").send(renderDashboard(lastReport || buildReport()));
+  app.get("/app", async (_req, res) => {
+    if (!lastReport) {
+      lastReport = await buildReport();
+    }
+    res.type("html").send(renderDashboard(lastReport));
   });
 
   app.get("/legal/terms", (_req, res) => {
@@ -255,7 +357,7 @@ function renderLanding(): string {
           <div>removed: <span class="hi">DELETE /users/{id}</span></div>
           <div class="dim">required_added: tenantId on POST /users</div>
           <div class="ok">consumers: billing-service · mobile-bff</div>
-          <div class="dim">ai stub cites diff engine + scanner only</div>
+          <div class="dim">ai cites diff engine + scanner only</div>
         </div>
       </div>
     </header>
@@ -354,7 +456,7 @@ function renderDashboard(report: Report): string {
   <header>
     <a class="home" href="/">← Marketing</a>
     <h1>API Change Intelligence</h1>
-    <p>${escapeHtml(report.summary)} Overall risk: ${badge(report.risk)}</p>
+    <p>${escapeHtml(report.summary)} Overall risk: ${badge(report.risk)} · merge: <strong>${escapeHtml(report.can_merge_recommendation)}</strong></p>
     <div class="actions">
       <button type="button" onclick="runDiff()">Run diff (v1 → v2)</button>
       <span id="usage">Token: demo</span>
@@ -376,7 +478,12 @@ function renderDashboard(report: Report): string {
       </table>
     </section>
     <section>
-      <h2>AI explanation (stub)</h2>
+      <h2>Merge risk</h2>
+      <p>Recommendation: <strong>${escapeHtml(report.can_merge_recommendation)}</strong></p>
+      <ul>${report.reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul>
+    </section>
+    <section>
+      <h2>AI explanation (${escapeHtml(report.ai_provider)})</h2>
       <pre>${escapeHtml(report.aiExplanation)}</pre>
     </section>
   </main>

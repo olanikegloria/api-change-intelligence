@@ -11,6 +11,6 @@
     "resolveJsonModule": true,
     "declaration": true
   },
-  "include": ["parser/**/*", "dependency-engine/**/*", "backend/**/*", "tests/**/*"],
+  "include": ["parser/**/*", "dependency-engine/**/*", "backend/**/*", "ai/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist", "sample-consumers"]
 }
