@@ -8,7 +8,6 @@
     "build": "tsc",
     "start": "tsx backend/server.ts",
     "dev": "tsx backend/server.ts",
-    "build": "tsc",
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {

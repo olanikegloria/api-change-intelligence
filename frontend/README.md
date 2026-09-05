@@ -1,5 +1,6 @@
-# Frontend
+UI is served by Express:
 
-The MVP risk report UI is served by Express at `GET /` (`backend/server.ts`).
+- Marketing: `GET /`
+- Product: `GET /app`
 
-A Next.js app can consume `POST /diff` and `GET /report` later without changing the engine.
+Reserved for a future SPA/Next client. Use Bearer `demo` against protected APIs.
