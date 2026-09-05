@@ -263,71 +263,75 @@ function renderLanding(): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>API Change Intelligence — catch breaking changes</title>
+  <title>API Change Intelligence - catch breaking changes</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #0c0e12; --panel: #141820; --text: #e8eaef; --muted: #8b93a7;
-      --accent: #c9a227; --accent-hover: #dbb43a;
-      --border: rgba(232,234,239,.08); --border-strong: rgba(232,234,239,.14);
+      --bg: #000; --panel: #000; --text: #fff; --muted: #9aa0a6;
+      --accent: #00e5ff; --accent-hover: #5ef0ff;
+      --border: #fff; --border-dim: rgba(255,255,255,.35);
     }
     * { box-sizing: border-box; }
     body {
-      margin: 0; font-family: "DM Sans", system-ui, sans-serif; color: var(--text);
-      background:
-        radial-gradient(ellipse 90% 55% at 70% -15%, rgba(201,162,39,.1), transparent 55%),
-        var(--bg);
-      min-height: 100vh; -webkit-font-smoothing: antialiased;
+      margin: 0; font-family: "Space Mono", ui-monospace, monospace; color: var(--text);
+      background: var(--bg); min-height: 100vh; -webkit-font-smoothing: antialiased;
     }
     .wrap { width: min(960px, calc(100% - 2.5rem)); margin: 0 auto; }
     nav {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 1.5rem 0; border-bottom: 1px solid var(--border);
+      padding: 1.5rem 0; border-bottom: 2px solid var(--border);
     }
-    .brand { font-weight: 700; letter-spacing: -0.03em; }
+    .brand { font-family: "Syne", system-ui, sans-serif; font-weight: 800; letter-spacing: -.02em; font-size: 1.1rem; text-transform: uppercase; }
     .brand span { color: var(--accent); }
-    .nav-links { display: flex; gap: 1.25rem; align-items: center; font-size: .9rem; }
+    .nav-links { display: flex; gap: 1.25rem; align-items: center; font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; }
     .nav-links a { text-decoration: none; color: var(--muted); }
-    .nav-links a:hover { color: var(--text); }
+    .nav-links a:hover { color: var(--accent); }
     .btn {
-      display: inline-flex; text-decoration: none; border-radius: 8px; padding: .7rem 1.2rem;
-      font-weight: 600; font-size: .925rem; border: 1px solid transparent;
-      transition: background .15s ease, transform .15s ease;
+      display: inline-flex; text-decoration: none; border-radius: 0; padding: .65rem 1.1rem;
+      font-weight: 700; font-size: .75rem; border: 2px solid transparent;
+      font-family: inherit; letter-spacing: .06em; text-transform: uppercase;
+      transition: background .12s ease, color .12s ease, border-color .12s ease;
     }
-    .btn:hover { transform: translateY(-1px); }
-    .btn-primary { background: var(--accent); color: #0a0c10; }
-    .btn-primary:hover { background: var(--accent-hover); }
-    .btn-ghost { background: transparent; border-color: var(--border-strong); color: var(--text); }
-    .hero { padding: 4.5rem 0 3.5rem; animation: fadeup .7s ease both; }
+    .btn-primary { background: var(--accent); color: #000; border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+    .btn-ghost { background: transparent; border-color: var(--border); color: var(--text); }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .hero { padding: 3.5rem 0 2.75rem; border-bottom: 2px solid var(--border); }
     .product {
-      font-size: .75rem; font-weight: 600; letter-spacing: .16em;
+      font-size: .65rem; font-weight: 700; letter-spacing: .18em;
       text-transform: uppercase; color: var(--accent); margin-bottom: 1rem;
     }
     h1 {
-      margin: 0 0 1rem; font-size: clamp(2.35rem, 5.5vw, 3.5rem); line-height: 1.08;
-      letter-spacing: -.045em; max-width: 14ch; font-weight: 700;
+      margin: 0 0 1rem; font-family: "Syne", system-ui, sans-serif;
+      font-size: clamp(2.2rem, 5.5vw, 3.4rem); line-height: 1.05;
+      letter-spacing: -.03em; max-width: 14ch; font-weight: 800; text-transform: uppercase;
     }
-    .lede { margin: 0 0 1.75rem; color: var(--muted); font-size: 1.1rem; line-height: 1.55; max-width: 42ch; }
+    .lede { margin: 0 0 1.75rem; color: var(--muted); font-size: .9rem; line-height: 1.6; max-width: 48ch; }
     .cta-row { display: flex; flex-wrap: wrap; gap: .75rem; }
     .features {
-      padding: 2.5rem 0 4rem; border-top: 1px solid var(--border);
-      display: grid; gap: 1.25rem;
+      padding: 0; border-top: none; display: grid; gap: 0;
     }
-    @media (min-width: 720px) { .features { grid-template-columns: repeat(3, 1fr); gap: 1.5rem; } }
+    @media (min-width: 720px) { .features { grid-template-columns: repeat(3, 1fr); } }
     .feature {
-      padding: 1.35rem 1.25rem; background: var(--panel);
-      border: 1px solid var(--border); border-radius: 10px;
+      padding: 1.5rem 1.25rem; background: transparent;
+      border: none; border-right: 1px solid var(--border-dim); border-bottom: 2px solid var(--border);
+      border-radius: 0;
     }
-    .feature h3 { margin: 0 0 .5rem; font-size: .95rem; }
-    .feature p { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.5; }
+    .feature:last-child { border-right: none; }
+    .feature h3 {
+      margin: 0 0 .65rem; font-size: .7rem; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--accent); font-family: inherit;
+    }
+    .feature p { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.55; }
     footer {
-      border-top: 1px solid var(--border); padding: 1.5rem 0 2.5rem; display: flex; flex-wrap: wrap;
-      gap: 1rem; justify-content: space-between; color: var(--muted); font-size: .85rem;
+      border-top: 2px solid var(--border); padding: 1.5rem 0 2.5rem; display: flex; flex-wrap: wrap;
+      gap: 1rem; justify-content: space-between; color: var(--muted); font-size: .7rem;
+      letter-spacing: .06em; text-transform: uppercase;
     }
     footer a { color: var(--muted); text-decoration: none; }
-    @keyframes fadeup { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    footer a:hover { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -343,7 +347,7 @@ function renderLanding(): string {
     <header class="hero">
       <div class="product">API Change Intelligence</div>
       <h1>Catch breaking API changes before they ship.</h1>
-      <p class="lede">Diff OpenAPI specs, score risk, and map blast radius across consumers — with orgs and API tokens on a free local stack.</p>
+      <p class="lede">Diff OpenAPI specs, score risk, and map blast radius across consumers - with orgs and API tokens on a free local stack.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="/app">Open app</a>
         <a class="btn btn-ghost" href="#features">See features</a>
@@ -360,7 +364,7 @@ function renderLanding(): string {
       </div>
       <div class="feature">
         <h3>Merge-risk summary</h3>
-        <p>HIGH/MED/LOW risk with an evidence-bound AI brief — Bearer token <code>demo</code> ready.</p>
+        <p>HIGH/MED/LOW risk with an evidence-bound AI brief - Bearer token <code>demo</code> ready.</p>
       </div>
     </section>
     <footer>
@@ -379,7 +383,7 @@ function renderDashboard(report: Report): string {
       <td>${badge(c.severity)}</td>
       <td>${c.kind}</td>
       <td class="mono">${c.method ? c.method.toUpperCase() + " " : ""}${escapeHtml(c.path)}</td>
-      <td>${escapeHtml(c.property || "—")}</td>
+      <td>${escapeHtml(c.property || "-")}</td>
       <td>${escapeHtml(c.summary)}</td>
     </tr>`
     )
@@ -402,58 +406,62 @@ function renderDashboard(report: Report): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>API Change Intelligence — App</title>
+  <title>API Change Intelligence - App</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #0c0e12; --panel: #141820; --border: rgba(232,234,239,.1); --border-strong: rgba(232,234,239,.16);
-      --text: #e8eaef; --muted: #8b93a7; --accent: #c9a227; --accent-hover: #dbb43a;
-      --fail: #e07a6e; --warn: #c9a227; --ok: #3d9a7a; --input: #0a0c10;
+      --bg: #000; --panel: #000; --border: #fff; --border-dim: rgba(255,255,255,.3);
+      --text: #fff; --muted: #9aa0a6; --accent: #00e5ff; --accent-hover: #5ef0ff;
+      --fail: #ff4d4f; --warn: #ffd666; --ok: #00e5ff; --input: #0a0a0a;
     }
     * { box-sizing: border-box; }
     body {
-      margin: 0; font-family: "DM Sans", system-ui, sans-serif; color: var(--text);
-      background: radial-gradient(ellipse 80% 45% at 50% -15%, rgba(201,162,39,.07), transparent), var(--bg);
-      min-height: 100vh; -webkit-font-smoothing: antialiased;
+      margin: 0; font-family: "Space Mono", ui-monospace, monospace; color: var(--text);
+      background: var(--bg); min-height: 100vh; -webkit-font-smoothing: antialiased;
     }
     .shell { width: min(1120px, calc(100% - 2rem)); margin: 0 auto; }
-    header { padding: 1.75rem 0 1.25rem; border-bottom: 1px solid var(--border); }
-    h1 { margin: .35rem 0 0; font-size: 1.35rem; letter-spacing: -.03em; font-weight: 700; }
-    p { color: var(--muted); margin: .45rem 0 1rem; font-size: .9rem; }
-    .actions { display: flex; gap: .55rem; flex-wrap: wrap; align-items: center; }
-    a.home { color: var(--muted); text-decoration: none; font-size: .875rem; }
-    a.home:hover { color: var(--text); }
-    button {
-      background: var(--accent); color: #0a0c10; border: none; border-radius: 8px;
-      padding: .55rem 1rem; font-weight: 600; font-size: .875rem; font-family: inherit; cursor: pointer;
+    header { padding: 1.5rem 0 1.15rem; border-bottom: 2px solid var(--border); }
+    h1 {
+      margin: .35rem 0 0; font-family: "Syne", system-ui, sans-serif;
+      font-size: 1.35rem; letter-spacing: -.02em; font-weight: 800; text-transform: uppercase;
     }
-    button:hover { background: var(--accent-hover); }
+    p { color: var(--muted); margin: .45rem 0 1rem; font-size: .8rem; }
+    .actions { display: flex; gap: .55rem; flex-wrap: wrap; align-items: center; }
+    a.home { color: var(--muted); text-decoration: none; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
+    a.home:hover { color: var(--accent); }
+    button {
+      background: var(--accent); color: #000; border: 2px solid var(--accent); border-radius: 0;
+      padding: .5rem .95rem; font-weight: 700; font-size: .72rem; font-family: inherit;
+      cursor: pointer; letter-spacing: .06em; text-transform: uppercase;
+    }
+    button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
     button:disabled { opacity: .55; cursor: not-allowed; }
-    main { padding: 1.25rem 0 2.5rem; display: grid; gap: 1rem; }
+    main { padding: 0 0 2.5rem; display: grid; gap: 0; }
     section {
-      background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem 1.2rem;
+      background: transparent; border: none; border-bottom: 2px solid var(--border);
+      border-radius: 0; padding: 1.15rem 0;
     }
     h2 {
-      margin: 0 0 .85rem; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase;
-      color: var(--muted); font-weight: 600;
+      margin: 0 0 .85rem; font-size: .65rem; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--accent); font-weight: 700;
     }
-    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
-    th, td { text-align: left; padding: .5rem .4rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-    th { color: var(--muted); font-weight: 500; font-size: .75rem; }
-    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .78rem; }
-    .badge { display: inline-block; padding: .15rem .5rem; border-radius: 4px; font-size: .72rem; font-weight: 700; }
-    .high { background: rgba(224,122,110,.15); color: var(--fail); }
-    .med { background: rgba(201,162,39,.15); color: var(--warn); }
-    .low { background: rgba(61,154,122,.15); color: var(--ok); }
+    table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    th, td { text-align: left; padding: .5rem .35rem; border-bottom: 1px solid var(--border-dim); vertical-align: top; }
+    th { color: var(--muted); font-weight: 700; font-size: .65rem; letter-spacing: .1em; text-transform: uppercase; }
+    .mono { font-size: .75rem; }
+    .badge { display: inline-block; padding: .1rem .4rem; border-radius: 0; font-size: .65rem; font-weight: 700; border: 1px solid currentColor; background: transparent; letter-spacing: .04em; }
+    .high { color: var(--fail); }
+    .med { color: var(--warn); }
+    .low { color: var(--ok); }
     pre {
-      white-space: pre-wrap; background: var(--input); border: 1px solid var(--border);
-      border-radius: 8px; padding: .9rem; font-family: "JetBrains Mono", ui-monospace, monospace;
-      font-size: .8rem; line-height: 1.5; margin: 0;
+      white-space: pre-wrap; background: var(--input); border: 1px solid var(--border-dim);
+      border-radius: 0; padding: .9rem; font-family: inherit;
+      font-size: .78rem; line-height: 1.5; margin: 0;
     }
-    #usage { font-size: .85rem; color: var(--muted); }
-    ul { margin: 0; padding-left: 1.2rem; color: var(--muted); line-height: 1.55; }
+    #usage { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    ul { margin: 0; padding-left: 1.2rem; color: var(--muted); line-height: 1.55; font-size: .8rem; }
   </style>
 </head>
 <body>
@@ -532,13 +540,14 @@ function renderDashboard(report: Report): string {
 function renderLegalTerms(): string {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Terms of Service — API Change Intelligence</title>
-<style>body{margin:0;font-family:"DM Sans",system-ui,sans-serif;background:#0c0e12;color:#e8eaef;line-height:1.55}
-main{width:min(720px,calc(100% - 2rem));margin:2rem auto 3rem}a{color:#c9a227}.muted{color:#8b93a7;font-size:.9rem}</style>
+<title>Terms of Service - API Change Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700&display=swap" rel="stylesheet"/>
+<style>body{margin:0;font-family:"Space Mono",ui-monospace,monospace;background:#000;color:#fff;line-height:1.55}
+main{width:min(720px,calc(100% - 2rem));margin:2rem auto 3rem}a{color:#00e5ff}h1{font-family:"Syne",system-ui,sans-serif;text-transform:uppercase}.muted{color:#9aa0a6;font-size:.85rem}</style>
 </head><body><main>
 <p><a href="/">← API Change Intelligence</a></p>
 <h1>Terms of Service</h1>
-<p class="muted">Stub — last updated September 5, 2026. Not legal advice.</p>
+<p class="muted">Stub - last updated September 5, 2026. Not legal advice.</p>
 <p>API Change Intelligence (“Service”) analyzes OpenAPI diffs and estimates consumer blast radius for evaluation and local use.</p>
 <h2>Accounts</h2>
 <ul>
@@ -553,13 +562,14 @@ main{width:min(720px,calc(100% - 2rem));margin:2rem auto 3rem}a{color:#c9a227}.m
 function renderLegalPrivacy(): string {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Privacy Policy — API Change Intelligence</title>
-<style>body{margin:0;font-family:"DM Sans",system-ui,sans-serif;background:#0c0e12;color:#e8eaef;line-height:1.55}
-main{width:min(720px,calc(100% - 2rem));margin:2rem auto 3rem}a{color:#c9a227}.muted{color:#8b93a7;font-size:.9rem}</style>
+<title>Privacy Policy - API Change Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700&display=swap" rel="stylesheet"/>
+<style>body{margin:0;font-family:"Space Mono",ui-monospace,monospace;background:#000;color:#fff;line-height:1.55}
+main{width:min(720px,calc(100% - 2rem));margin:2rem auto 3rem}a{color:#00e5ff}h1{font-family:"Syne",system-ui,sans-serif;text-transform:uppercase}.muted{color:#9aa0a6;font-size:.85rem}</style>
 </head><body><main>
 <p><a href="/">← API Change Intelligence</a></p>
 <h1>Privacy Policy</h1>
-<p class="muted">Stub — last updated September 5, 2026. Not legal advice.</p>
+<p class="muted">Stub - last updated September 5, 2026. Not legal advice.</p>
 <h2>Data we store</h2>
 <ul>
 <li><strong>Account data:</strong> email, password hash, organization name, API tokens.</li>
