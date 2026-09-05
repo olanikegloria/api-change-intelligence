@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8006:8006"
+    volumes:
+      - ./fixtures:/app/fixtures:ro
+      - ./sample-consumers:/app/sample-consumers:ro
+    environment:
+      - PROJECT_ROOT=/app
+      - PORT=8006
